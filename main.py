@@ -8,6 +8,9 @@ from datetime import datetime, timedelta
 
 from features import FEATURES, transform
 
+import os
+from dotenv import load_dotenv
+
 
 # -----------------------------
 # INIT APP
@@ -24,10 +27,23 @@ app = FastAPI(
 )
 
 
+# -------- LOAD ENV --------
+# Load environment variables from .env file
+load_dotenv()
+
+# JWT configuration (with defaults for development)
+SECRET_KEY = os.getenv("SECRET_KEY", "dev_secret")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
+
+# Admin credentials loaded from .env
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+
 # ---------------- JWT CONFIG ----------------
-SECRET_KEY = "your-secret-key"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+#SECRET_KEY = "your-secret-key"
+#ALGORITHM = "HS256"
+#ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
@@ -72,8 +88,10 @@ def root():
 # ---------------- LOGIN ----------------
 @app.post("/login")
 def login(form: OAuth2PasswordRequestForm = Depends()):
-
-    if form.username != "admin" or form.password != "password":
+    
+    # Load admin credentials from environment variables
+    # if form.username != "admin" or form.password != "password":
+    if ( form.username != ADMIN_USERNAME or form.password != ADMIN_PASSWORD ):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     return {

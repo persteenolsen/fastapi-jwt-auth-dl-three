@@ -86,9 +86,13 @@ VENV OK
 # 🔐 Environment Variables (.env)
 
 ```
-JWT_SECRET=your_secret_key
-JWT_ALGORITHM=HS256
+SECRET_KEY=your_secret_key
+ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
+
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=password
+
 ```
 
 ---
