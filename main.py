@@ -8,7 +8,21 @@ from datetime import datetime, timedelta
 
 from features import FEATURES, transform
 
-app = FastAPI()
+
+# -----------------------------
+# INIT APP
+# -----------------------------
+# Create FastAPI application with metadata (used in Swagger docs)
+app = FastAPI(
+    title="FastAPI + JWT + Deep Learning + House Price Prediction (v6)",
+    description="28-04-2026 - FastAPI + JWT + Deep Learning + House Price Prediction with Ames Housing Dataset - Neural Network trained by PyTorch and exported to ONNX",
+    version="6.0.0",
+    contact={
+        "name": "Per Olsen",
+        "url": "https://persteenolsen.netlify.app",
+    },
+)
+
 
 # ---------------- JWT CONFIG ----------------
 SECRET_KEY = "your-secret-key"
@@ -47,6 +61,13 @@ def verify_token(token: str):
         jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+
+# -------- ROOT ENDPOINT --------
+# Simple health/info endpoint
+@app.get("/")
+def root():
+    return {"message": "House Price Prediction API v6 + PyTorch + ONNX"}
 
 # ---------------- LOGIN ----------------
 @app.post("/login")
