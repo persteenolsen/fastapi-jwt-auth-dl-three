@@ -1,0 +1,7 @@
+fastapi>=0.110,<0.116
+python-dotenv>=1.0,<2.0
+python-jose[cryptography]>=3.3,<4.0
+onnxruntime==1.17.3
+numpy>=1.26,<2.0
+python-multipart>=0.0.9
+uvicorn>=0.29,<0.31

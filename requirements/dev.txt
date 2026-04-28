@@ -1,0 +1,8 @@
+-r train.txt
+
+fastapi>=0.110,<0.116
+uvicorn>=0.29,<0.31
+python-dotenv>=1.0,<2.0
+python-jose[cryptography]>=3.3,<4.0
+onnxruntime>=1.17,<1.20
+python-multipart>=0.0.9
