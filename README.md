@@ -188,7 +188,7 @@ POST `/predict`
 
 ```json
 {
-  "predicted_price": 218865.4375
+  "predicted_price": 250116.609375
 }
 ```
 
@@ -208,7 +208,7 @@ POST `/predict`
 
 ```json
 {
-  "predicted_price": 1000000
+  "predicted_price": 755000
 }
 ```
 ---
