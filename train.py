@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.onnx
-
+from sklearn.preprocessing import StandardScaler
 from features import FEATURES
 
 # ---------------- LOAD DATA ----------------
@@ -13,7 +13,7 @@ df = pd.read_csv("AmesHousing.csv")
 df["HouseAge"] = 2026 - df["Year Built"]
 df["HasGarage"] = (df["Garage Cars"] > 0).astype(int)
 
-# rename for consistency
+# Rename for consistency
 df = df.rename(columns={
     "Gr Liv Area": "Gr_Liv_Area",
     "Overall Qual": "Overall_Qual",
@@ -27,26 +27,31 @@ df = df.rename(columns={
 # ---------------- SELECT FEATURES ----------------
 df = df[FEATURES + ["SalePrice"]].dropna()
 
-X = df[FEATURES].values.astype(np.float32)
+# ---------------- CHECK DISTRIBUTION OF SALEPRICE ----------------
+# Check summary statistics of the SalePrice distribution
+print("\nSummary statistics for SalePrice:")
+print(df['SalePrice'].describe())
+
+# ---------------- TARGET NORMALIZATION ----------------
+# Log-transform the target SalePrice to compress large values
 y = np.log1p(df["SalePrice"].values.astype(np.float32))
 
-# ---------------- NORMALIZATION (CRITICAL FIX) ----------------
-X_mean = X.mean(axis=0)
-X_std = X.std(axis=0) + 1e-8  # avoid divide-by-zero
+# ---------------- FEATURE NORMALIZATION ----------------
+X = df[FEATURES].values.astype(np.float32)
 
-X = (X - X_mean) / X_std
+# Normalize the features using StandardScaler from sklearn
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
 
-# save for inference
-np.save("mean.npy", X_mean)
-np.save("std.npy", X_std)
+# Save the mean and std values for inference
+np.save("mean.npy", scaler.mean_)
+np.save("std.npy", scaler.scale_)
 
 # ---------------- TRAIN/TEST SPLIT ----------------
-split = int(0.8 * len(X))
-
-X_train = torch.tensor(X[:split])
+split = int(0.8 * len(X_scaled))
+X_train = torch.tensor(X_scaled[:split])
 y_train = torch.tensor(y[:split]).view(-1, 1)
-
-X_test = torch.tensor(X[split:])
+X_test = torch.tensor(X_scaled[split:])
 y_test = torch.tensor(y[split:]).view(-1, 1)
 
 # ---------------- MODEL ----------------

@@ -1,72 +1,67 @@
+from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import jwt, JWTError
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from datetime import datetime, timedelta
 import numpy as np
 import onnxruntime as ort
-from datetime import datetime, timedelta
-
+import os
+from jose import jwt, JWTError
 from features import FEATURES, transform
 
-import os
-from dotenv import load_dotenv
+# ----------------------------- INIT APP -----------------------------
+# OAuth2 password bearer token definition
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-
-# -----------------------------
-# INIT APP
-# -----------------------------
-# Create FastAPI application with metadata (used in Swagger docs)
+# FastAPI initialization
 app = FastAPI(
     title="FastAPI + JWT + Deep Learning + House Price Prediction (v6)",
-    description="28-04-2026 - FastAPI + JWT + Deep Learning + House Price Prediction with Ames Housing Dataset - Neural Network trained by PyTorch and exported to ONNX",
+    description="29-04-2026 - FastAPI app with deep learning model serving house price predictions based on Ames Housing dataset.",
     version="6.0.0",
     contact={
         "name": "Per Olsen",
         "url": "https://persteenolsen.netlify.app",
     },
+    openapi_tags=[  # Adding a tag for the JWT token
+        {
+            "name": "Authorization",
+            "description": "JWT Token for API access",
+        }
+    ]
 )
 
-
-# -------- LOAD ENV --------
-# Load environment variables from .env file
+# ---------------------------- ENVIRONMENT VARIABLES ----------------------------
 load_dotenv()
 
-# JWT configuration (with defaults for development)
+# JWT configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "dev_secret")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
 
-# Admin credentials loaded from .env
+# Admin credentials
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
-# ---------------- JWT CONFIG ----------------
-#SECRET_KEY = "your-secret-key"
-#ALGORITHM = "HS256"
-#ACCESS_TOKEN_EXPIRE_MINUTES = 60
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
-
-# ---------------- LOAD NORMALIZATION ----------------
+# ---------------------------- LOAD MEAN, STD, AND MODEL ----------------------------
 mean = np.load("mean.npy")
 std = np.load("std.npy")
 
-# ---------------- ONNX MODEL ----------------
 session = ort.InferenceSession("model.onnx")
 input_name = session.get_inputs()[0].name
 output_name = session.get_outputs()[0].name
 
-# ---------------- INPUT MODEL ----------------
+# ---------------------------- MODELS ----------------------------
 class HouseInput(BaseModel):
-    Gr_Liv_Area: float
-    Overall_Qual: float
-    Year_Built: float
-    Garage_Cars: float
-    Full_Bath: float
-    Bedroom_AbvGr: float
-    Lot_Area: float
+    Gr_Liv_Area: float = Field(..., gt=100, lt=10000)
+    Overall_Qual: float = Field(..., gt=0, lt=10)
+    Year_Built: float = Field(..., gt=1800, lt=2026)
+    Garage_Cars: float = Field(..., gt=0, lt=10)
+    Full_Bath: float = Field(..., gt=0, lt=10)
+    Bedroom_AbvGr: float = Field(..., gt=0, lt=10)
+    Lot_Area: float = Field(..., gt=1000, lt=50000)
 
-# ---------------- JWT ----------------
+# ---------------------------- JWT HANDLING ----------------------------
+
 def create_token(data: dict):
     payload = data.copy()
     payload["exp"] = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -78,20 +73,15 @@ def verify_token(token: str):
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-
-# -------- ROOT ENDPOINT --------
-# Simple health/info endpoint
+# ---------------------------- ROOT ENDPOINT ----------------------------
 @app.get("/")
 def root():
-    return {"message": "House Price Prediction API v6 + PyTorch + ONNX"}
+    return {"message": "House Price Prediction API"}
 
-# ---------------- LOGIN ----------------
+# ---------------------------- LOGIN ENDPOINT ----------------------------
 @app.post("/login")
 def login(form: OAuth2PasswordRequestForm = Depends()):
-    
-    # Load admin credentials from environment variables
-    # if form.username != "admin" or form.password != "password":
-    if ( form.username != ADMIN_USERNAME or form.password != ADMIN_PASSWORD ):
+    if form.username != ADMIN_USERNAME or form.password != ADMIN_PASSWORD:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     return {
@@ -99,41 +89,36 @@ def login(form: OAuth2PasswordRequestForm = Depends()):
         "token_type": "bearer"
     }
 
-# ---------------- PREDICT ----------------
+# ---------------------------- PREDICT ENDPOINT ----------------------------
 @app.post("/predict")
 def predict(input_data: HouseInput, token: str = Depends(oauth2_scheme)):
-
+    # Verify JWT token
     verify_token(token)
 
-    # ---------------- RAW INPUT ----------------
-    data = input_data.dict()
+    # -------------------------- FEATURE ENGINEERING --------------------------
+    # Transform input data into features for prediction
+    features_dict = transform(input_data.dict())
 
-    # ---------------- FEATURE ENGINEERING ----------------
-    features_dict = {
-        "Gr_Liv_Area": data["Gr_Liv_Area"],
-        "Overall_Qual": data["Overall_Qual"],
-        "Year_Built": data["Year_Built"],
-        "Garage_Cars": data["Garage_Cars"],
-        "Full_Bath": data["Full_Bath"],
-        "Bedroom_AbvGr": data["Bedroom_AbvGr"],
-        "Lot_Area": data["Lot_Area"],
-
-        "HouseAge": 2026 - data["Year_Built"],
-        "HasGarage": 1 if data["Garage_Cars"] > 0 else 0
-    }
-
-    # ---------------- FEATURE ORDER (MUST MATCH TRAINING) ----------------
+    # -------------------------- NORMALIZATION --------------------------
+    # Normalize features using mean and std saved during training
     x = np.array([[features_dict[f] for f in FEATURES]], dtype=np.float32)
-
-    # ---------------- NORMALIZATION (CRITICAL FIX) ----------------
     x = (x - mean) / std
 
-    # ---------------- ONNX INFERENCE ----------------
-    pred_log = session.run([output_name], {input_name: x})[0]
+    # -------------------------- PREDICTION --------------------------
+    # Run the model (ONNX) for prediction
+    pred_log = session.run([output_name], {input_name: x.astype(np.float32)})[0]
 
-    # reverse log transform
+    # Reverse the log transformation
     price = np.expm1(pred_log)[0][0]
 
-    return {
-        "predicted_price": float(price)
-    }
+    # -------------------------- CLAMPING PREDICTED PRICE --------------------------
+    max_price = 755000  # Maximum house price in the dataset
+    min_price = 50000   # Minimum reasonable house price
+
+    # Apply clamping if necessary
+    if price > max_price:
+        price = max_price
+    if price < min_price:
+        price = min_price
+
+    return {"predicted_price": float(price)}

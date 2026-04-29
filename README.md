@@ -1,6 +1,6 @@
 # 🏠 v6 - House Price Prediction API (FastAPI + PyTorch + JWT + Ames Dataset)
 
-**Last updated:** 28-04-2026
+**Last updated:** 29-04-2026
 
 A production-style machine learning backend system that predicts house prices using a PyTorch neural network trained on the Ames Housing dataset and served through a secure FastAPI API with JWT authentication.
 
@@ -170,7 +170,7 @@ Authorization: Bearer <token>
 
 POST `/predict`
 
-## Example request
+## Example requests
 
 ```json
 {
@@ -188,9 +188,42 @@ POST `/predict`
 
 ```json
 {
-  "predicted_price": 235170.12
+  "predicted_price": 218865.4375
 }
 ```
+
+```json
+{
+  "Gr_Liv_Area": 800,
+  "Overall_Qual": 4,
+  "Year_Built": 2005,
+  "Garage_Cars": 2,
+  "Full_Bath": 2,
+  "Bedroom_AbvGr": 3,
+  "Lot_Area": 8000
+}
+```
+
+## Response
+
+```json
+{
+  "predicted_price": 1000000
+}
+```
+---
+
+## Clamping Predicted Price
+
+To avoid unrealistic house price predictions, the model clamps the output to a maximum value of **$755,000**. After predicting, the price is reverse log-transformed and if it exceeds the cap, it's set to this maximum value.
+
+Example:
+
+1. Model predicts a price.
+2. The price is transformed using `np.expm1()`.
+3. If the price exceeds $755,000, it's clamped to that value.
+
+This ensures predictions stay within a realistic range.
 
 ---
 

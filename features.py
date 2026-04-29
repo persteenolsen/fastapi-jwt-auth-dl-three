@@ -1,5 +1,3 @@
-# features.py
-
 FEATURES = [
     "Gr_Liv_Area",
     "Overall_Qual",
