@@ -6,7 +6,7 @@ import torch.onnx
 from sklearn.preprocessing import StandardScaler
 from features import FEATURES
 
-# ---------------- LOAD DATA ----------------
+# -------------------- LOAD DATA --------------------
 df = pd.read_csv("AmesHousing.csv")
 
 # ---------------- FEATURE ENGINEERING ----------------
@@ -28,18 +28,15 @@ df = df.rename(columns={
 df = df[FEATURES + ["SalePrice"]].dropna()
 
 # ---------------- CHECK DISTRIBUTION OF SALEPRICE ----------------
-# Check summary statistics of the SalePrice distribution
 print("\nSummary statistics for SalePrice:")
 print(df['SalePrice'].describe())
 
 # ---------------- TARGET NORMALIZATION ----------------
-# Log-transform the target SalePrice to compress large values
 y = np.log1p(df["SalePrice"].values.astype(np.float32))
 
 # ---------------- FEATURE NORMALIZATION ----------------
 X = df[FEATURES].values.astype(np.float32)
 
-# Normalize the features using StandardScaler from sklearn
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
@@ -59,14 +56,11 @@ class HouseModel(nn.Module):
     def __init__(self, n_features):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(n_features, 128),
-            nn.BatchNorm1d(128),
+            nn.Linear(n_features, 64),  # Using smaller number of units
             nn.ReLU(),
-
-            nn.Linear(128, 64),
+            nn.Linear(64, 32),
             nn.ReLU(),
-
-            nn.Linear(64, 1)
+            nn.Linear(32, 1)
         )
 
     def forward(self, x):
@@ -76,23 +70,26 @@ model = HouseModel(len(FEATURES))
 
 # ---------------- TRAIN SETUP ----------------
 loss_fn = nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.0005)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
 # ---------------- TRAIN LOOP ----------------
 epochs = 200
+mono_loss_weight = 0.05  # Lowering monotonic loss weight
 
 for epoch in range(epochs):
     model.train()
 
     pred = model(X_train)
-    loss = loss_fn(pred, y_train)
+    base_loss = loss_fn(pred, y_train)
+    mono_loss = 0  # For now no monotonic constraint
 
+    total_loss = base_loss + mono_loss * mono_loss_weight
     optimizer.zero_grad()
-    loss.backward()
+    total_loss.backward()
     optimizer.step()
 
     if epoch % 20 == 0:
-        print(f"Epoch {epoch}: {loss.item():.4f}")
+        print(f"Epoch {epoch}: base_loss={base_loss.item():.4f}, mono_loss={mono_loss.item() if mono_loss != 0 else 0:.4f}, total_loss={total_loss.item():.4f}")
 
 # ---------------- EVALUATION ----------------
 model.eval()

@@ -16,7 +16,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 # FastAPI initialization
 app = FastAPI(
     title="FastAPI + JWT + Deep Learning + House Price Prediction (v6)",
-    description="29-04-2026 - FastAPI app with deep learning model serving house price predictions based on Ames Housing dataset.",
+    description="30-04-2026 - FastAPI app with deep learning model serving house price predictions based on Ames Housing dataset.",
     version="6.0.0",
     contact={
         "name": "Per Olsen",
@@ -90,32 +90,53 @@ def login(form: OAuth2PasswordRequestForm = Depends()):
     }
 
 # ---------------------------- PREDICT ENDPOINT ----------------------------
+# ---------------------------- PREDICT ENDPOINT ----------------------------
 @app.post("/predict")
 def predict(input_data: HouseInput, token: str = Depends(oauth2_scheme)):
     # Verify JWT token
     verify_token(token)
 
     # -------------------------- FEATURE ENGINEERING --------------------------
-    # Transform input data into features for prediction
     features_dict = transform(input_data.dict())
 
+    # -------------------------- BUILD FEATURE VECTOR --------------------------
+    # Ensure correct order and visibility
+    x_list = [features_dict[f] for f in FEATURES]
+
+    # 🔍 Debug: print feature mapping (remove later)
+    print("---- FEATURE DEBUG ----")
+    for f, v in zip(FEATURES, x_list):
+        print(f"{f}: {v}")
+    print("------------------------")
+
+    x = np.array([x_list], dtype=np.float32)
+
+    # -------------------------- SAFETY CHECK --------------------------
+    if len(mean) != len(FEATURES) or len(std) != len(FEATURES):
+        raise HTTPException(
+            status_code=500,
+            detail="Mismatch between FEATURES and normalization vectors"
+        )
+
+    # 🔍 Debug: print mean/std alignment (remove later)
+    print("---- NORMALIZATION DEBUG ----")
+    for f, m, s in zip(FEATURES, mean, std):
+        print(f"{f}: mean={m:.2f}, std={s:.2f}")
+    print("-----------------------------")
+
     # -------------------------- NORMALIZATION --------------------------
-    # Normalize features using mean and std saved during training
-    x = np.array([[features_dict[f] for f in FEATURES]], dtype=np.float32)
     x = (x - mean) / std
 
     # -------------------------- PREDICTION --------------------------
-    # Run the model (ONNX) for prediction
     pred_log = session.run([output_name], {input_name: x.astype(np.float32)})[0]
 
     # Reverse the log transformation
     price = np.expm1(pred_log)[0][0]
 
-    # -------------------------- CLAMPING PREDICTED PRICE --------------------------
-    max_price = 755000  # Maximum house price in the dataset
-    min_price = 50000   # Minimum reasonable house price
+    # -------------------------- CLAMPING --------------------------
+    max_price = 755000
+    min_price = 50000
 
-    # Apply clamping if necessary
     if price > max_price:
         price = max_price
     if price < min_price:
