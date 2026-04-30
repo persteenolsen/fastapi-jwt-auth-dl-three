@@ -172,6 +172,8 @@ POST `/predict`
 
 ## Example requests
 
+Owerall Quality = 7
+
 ```json
 {
   "Gr_Liv_Area": 1500,
@@ -188,14 +190,17 @@ POST `/predict`
 
 ```json
 {
-  "predicted_price": 250116.609375
+  "predicted_price": 210950.03125
 }
 ```
 
+
+Owerall Quality = 6 gives lower price like expected
+
 ```json
 {
-  "Gr_Liv_Area": 800,
-  "Overall_Qual": 4,
+  "Gr_Liv_Area": 1500,
+  "Overall_Qual": 6,
   "Year_Built": 2005,
   "Garage_Cars": 2,
   "Full_Bath": 2,
@@ -208,7 +213,7 @@ POST `/predict`
 
 ```json
 {
-  "predicted_price": 755000
+  "predicted_price": 147330.328125
 }
 ```
 ---
