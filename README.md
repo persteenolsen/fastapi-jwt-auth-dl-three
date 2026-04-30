@@ -6,7 +6,7 @@ A production-style machine learning backend system that predicts house prices us
 
 This project demonstrates a full ML engineering pipeline: data preprocessing → feature engineering → model training → ONNX export → secure API inference.
 
-# 🚀 Things I learned
+# 👨‍💻 Things I learned
 
 - For Ames Housing Dataset which are tabular data using a Neural Network is not the best choice
 
