@@ -10,11 +10,11 @@ This project demonstrates a full ML engineering pipeline: data preprocessing →
 
 # 👨‍💻 Things I learned
 
-- For Ames Housing Dataset which are messy and noisy tabular data using a Neural Network was an intersting experience
+- For Ames Housing Dataset which are messy and noisy tabular data using a Neural Network was an interesting experience
 
-- My v7 using Linear Regression performs better with Ames Housing Dataset
+- My v7 using Linear Regression performs "better" with Ames Housing Dataset, but both models have their pros and cons 
 
-However, I got some experience with PyTorch and compared PyToch Neural Network v6 with Linear Regression v7. PyTorch would be a good choice for massive datsets and image classification
+However, I got experience with PyTorch and compared PyToch Neural Network v6 with Linear Regression v7. PyTorch would be a good choice for massive datsets and image classification
 
 ---
 
