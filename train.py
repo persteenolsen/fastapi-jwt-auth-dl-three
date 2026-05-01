@@ -4,16 +4,29 @@ import torch
 import torch.nn as nn
 import torch.onnx
 from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression
 from features import FEATURES
 
-# -------------------- LOAD DATA --------------------
+# =====================================================
+# FEATURE ENGINEERING
+# =====================================================
+def build_features(row):
+    row = row.copy()
+    row["HouseAge"] = 2026 - row["Year_Built"]
+    row["HasGarage"] = 1 if row["Garage_Cars"] > 0 else 0
+    return row
+
+
+def make_input(row, scaler):
+    x = np.array([row[f] for f in FEATURES], dtype=np.float32)
+    x_scaled = (x - scaler.mean_) / scaler.scale_
+    return x_scaled.astype(np.float32)
+
+# =====================================================
+# LOAD DATA
+# =====================================================
 df = pd.read_csv("AmesHousing.csv")
 
-# ---------------- FEATURE ENGINEERING ----------------
-df["HouseAge"] = 2026 - df["Year Built"]
-df["HasGarage"] = (df["Garage Cars"] > 0).astype(int)
-
-# Rename for consistency
 df = df.rename(columns={
     "Gr Liv Area": "Gr_Liv_Area",
     "Overall Qual": "Overall_Qual",
@@ -24,43 +37,64 @@ df = df.rename(columns={
     "Lot Area": "Lot_Area"
 })
 
-# ---------------- SELECT FEATURES ----------------
+df = df.apply(build_features, axis=1)
 df = df[FEATURES + ["SalePrice"]].dropna()
 
-# ---------------- CHECK DISTRIBUTION OF SALEPRICE ----------------
-print("\nSummary statistics for SalePrice:")
-print(df['SalePrice'].describe())
+# =====================================================
+# CORRELATION CHECK
+# =====================================================
+print("\n📊 Correlation with SalePrice:")
+print(df[FEATURES + ["SalePrice"]].corr()["SalePrice"].sort_values())
 
-# ---------------- TARGET NORMALIZATION ----------------
+# =====================================================
+# LINEAR BASELINE
+# =====================================================
+print("\n📏 Linear Regression baseline:")
+linreg = LinearRegression()
+linreg.fit(df[FEATURES], df["SalePrice"])
+
+coef = dict(zip(FEATURES, linreg.coef_))
+print("Gr_Liv_Area coefficient:", coef["Gr_Liv_Area"])
+
+# =====================================================
+# TARGET
+# =====================================================
 y = np.log1p(df["SalePrice"].values.astype(np.float32))
 
-# ---------------- FEATURE NORMALIZATION ----------------
+# =====================================================
+# FEATURES
+# =====================================================
 X = df[FEATURES].values.astype(np.float32)
 
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
-# Save the mean and std values for inference
 np.save("mean.npy", scaler.mean_)
 np.save("std.npy", scaler.scale_)
 
-# ---------------- TRAIN/TEST SPLIT ----------------
+# =====================================================
+# TRAIN / TEST SPLIT
+# =====================================================
 split = int(0.8 * len(X_scaled))
-X_train = torch.tensor(X_scaled[:split])
-y_train = torch.tensor(y[:split]).view(-1, 1)
-X_test = torch.tensor(X_scaled[split:])
-y_test = torch.tensor(y[split:]).view(-1, 1)
 
-# ---------------- MODEL ----------------
+X_train = torch.tensor(X_scaled[:split], dtype=torch.float32)
+y_train = torch.tensor(y[:split], dtype=torch.float32).view(-1, 1)
+
+X_test = torch.tensor(X_scaled[split:], dtype=torch.float32)
+y_test = torch.tensor(y[split:], dtype=torch.float32).view(-1, 1)
+
+# =====================================================
+# MODEL (IMPROVED CAPACITY)
+# =====================================================
 class HouseModel(nn.Module):
     def __init__(self, n_features):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(n_features, 64),  # Using smaller number of units
+            nn.Linear(n_features, 32),
             nn.ReLU(),
-            nn.Linear(64, 32),
+            nn.Linear(32, 16),
             nn.ReLU(),
-            nn.Linear(32, 1)
+            nn.Linear(16, 1)
         )
 
     def forward(self, x):
@@ -68,39 +102,48 @@ class HouseModel(nn.Module):
 
 model = HouseModel(len(FEATURES))
 
-# ---------------- TRAIN SETUP ----------------
+# =====================================================
+# TRAIN SETUP
+# =====================================================
 loss_fn = nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-# ---------------- TRAIN LOOP ----------------
-epochs = 200
-mono_loss_weight = 0.05  # Lowering monotonic loss weight
+optimizer = torch.optim.Adam(
+    model.parameters(),
+    lr=0.0005,          # lower LR for stability
+    weight_decay=1e-4
+)
+
+# =====================================================
+# TRAIN LOOP
+# =====================================================
+epochs = 500
 
 for epoch in range(epochs):
     model.train()
 
     pred = model(X_train)
-    base_loss = loss_fn(pred, y_train)
-    mono_loss = 0  # For now no monotonic constraint
+    loss = loss_fn(pred, y_train)
 
-    total_loss = base_loss + mono_loss * mono_loss_weight
     optimizer.zero_grad()
-    total_loss.backward()
+    loss.backward()
     optimizer.step()
 
-    if epoch % 20 == 0:
-        print(f"Epoch {epoch}: base_loss={base_loss.item():.4f}, mono_loss={mono_loss.item() if mono_loss != 0 else 0:.4f}, total_loss={total_loss.item():.4f}")
+    if epoch % 50 == 0:
+        print(f"Epoch {epoch}: loss={loss.item():.4f}")
 
-# ---------------- EVALUATION ----------------
+# =====================================================
+# EVALUATION
+# =====================================================
 model.eval()
 with torch.no_grad():
-    test_pred = model(X_test)
-    test_loss = loss_fn(test_pred, y_test)
+    test_loss = loss_fn(model(X_test), y_test)
 
 print("\n📊 Final Test Loss:", test_loss.item())
 
-# ---------------- EXPORT ONNX ----------------
-dummy = torch.randn(1, len(FEATURES))
+# =====================================================
+# EXPORT ONNX
+# =====================================================
+dummy = torch.randn(1, len(FEATURES), dtype=torch.float32)
 
 torch.onnx.export(
     model,
@@ -111,6 +154,64 @@ torch.onnx.export(
     opset_version=17
 )
 
-print("\n✅ Training complete")
-print("✅ model.onnx exported")
+print("\n✅ model.onnx exported")
 print("✅ mean.npy + std.npy saved")
+
+# =====================================================
+# TEST CASE 1: PYTORCH
+# =====================================================
+print("\n🔎 Manual predictions (PyTorch):")
+
+base = {
+    "Gr_Liv_Area": 900,
+    "Overall_Qual": 7,
+    "Year_Built": 2005,
+    "Garage_Cars": 2,
+    "Full_Bath": 2,
+    "Bedroom_AbvGr": 3,
+    "Lot_Area": 8000
+}
+
+test_values = [900, 1000, 1100, 1200]
+
+model.eval()
+with torch.no_grad():
+    for val in test_values:
+        row = base.copy()
+        row["Gr_Liv_Area"] = val
+
+        row = build_features(row)
+
+        x_scaled = make_input(row, scaler)
+
+        x_tensor = torch.tensor(x_scaled, dtype=torch.float32).unsqueeze(0)
+
+        pred = model(x_tensor).item()
+        price = np.expm1(pred)
+
+        print(f"Gr_Liv_Area={val} -> ${price:,.0f}")
+
+# =====================================================
+# TEST CASE 2: ONNX VALIDATION
+# =====================================================
+print("\n🔎 ONNX verification:")
+
+import onnxruntime as ort
+ort_session = ort.InferenceSession("model.onnx")
+
+model.eval()
+with torch.no_grad():
+    for val in test_values:
+        row = base.copy()
+        row["Gr_Liv_Area"] = val
+
+        row = build_features(row)
+
+        x_scaled = make_input(row, scaler)
+
+        torch_pred = model(torch.tensor(x_scaled, dtype=torch.float32).unsqueeze(0)).item()
+
+        ort_out = ort_session.run(None, {"input": x_scaled.reshape(1, -1)})
+        onnx_pred = ort_out[0][0][0]
+
+        print(f"{val}: diff={abs(torch_pred - onnx_pred):.8f}")

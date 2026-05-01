@@ -2,7 +2,7 @@
 
 Last updated: 
 
-- 30-04-2026
+- 01-05-2026
 
 A production-style machine learning backend system that predicts house prices using a PyTorch neural network trained on the Ames Housing dataset and served through a secure FastAPI API with JWT authentication.
 
@@ -10,7 +10,7 @@ This project demonstrates a full ML engineering pipeline: data preprocessing →
 
 # 👨‍💻 Things I learned
 
-- For Ames Housing Dataset which are messy and noisy tabular data using a Neural Network was not the best choice
+- For Ames Housing Dataset which are messy and noisy tabular data using a Neural Network was an intersting experience
 
 - My v7 using Linear Regression performs better with Ames Housing Dataset
 
@@ -76,7 +76,7 @@ cd house-price-api
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
-pip install -r requirements.txt
+pip install -r requirements/dev.txt
 ```
 
 Verify setup:
@@ -182,7 +182,7 @@ POST `/predict`
 
 ## Example requests
 
-Owerall Quality = 7
+ "Gr_Liv_Area" = 1500
 
 ```json
 {
@@ -200,17 +200,17 @@ Owerall Quality = 7
 
 ```json
 {
-  "predicted_price": 210950.03125
+  "predicted_price": 131281.984375
 }
 ```
 
 
-Owerall Quality = 6 gives lower price like expected
+"Gr_Liv_Area" = 1200 gives lower price like expected
 
 ```json
 {
-  "Gr_Liv_Area": 1500,
-  "Overall_Qual": 6,
+  "Gr_Liv_Area": 1200,
+  "Overall_Qual": 7,
   "Year_Built": 2005,
   "Garage_Cars": 2,
   "Full_Bath": 2,
@@ -223,7 +223,7 @@ Owerall Quality = 6 gives lower price like expected
 
 ```json
 {
-  "predicted_price": 147330.328125
+  "predicted_price": 102962.46875
 }
 ```
 ---

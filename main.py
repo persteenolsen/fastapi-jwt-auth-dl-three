@@ -7,22 +7,20 @@ import numpy as np
 import onnxruntime as ort
 import os
 from jose import jwt, JWTError
-from features import FEATURES, transform
+from features import FEATURES
 
 # ----------------------------- INIT APP -----------------------------
-# OAuth2 password bearer token definition
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-# FastAPI initialization
 app = FastAPI(
     title="FastAPI + JWT + Deep Learning + House Price Prediction (v6)",
-    description="30-04-2026 - FastAPI app with deep learning model serving house price predictions based on Ames Housing dataset.",
+    description="01-05-2026 - FastAPI app with deep learning model serving house price predictions based on Ames Housing dataset.",
     version="6.0.0",
     contact={
         "name": "Per Olsen",
         "url": "https://persteenolsen.netlify.app",
     },
-    openapi_tags=[  # Adding a tag for the JWT token
+    openapi_tags=[
         {
             "name": "Authorization",
             "description": "JWT Token for API access",
@@ -30,21 +28,22 @@ app = FastAPI(
     ]
 )
 
-# ---------------------------- ENVIRONMENT VARIABLES ----------------------------
+# ---------------------------- ENV ----------------------------
 load_dotenv()
 
-# JWT configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "dev_secret")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
 
-# Admin credentials
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
-# ---------------------------- LOAD MEAN, STD, AND MODEL ----------------------------
-mean = np.load("mean.npy")
-std = np.load("std.npy")
+# ---------------------------- LOAD MODEL ----------------------------
+mean = np.load("mean.npy").astype(np.float32)
+std = np.load("std.npy").astype(np.float32)
+
+# SAFE normalization (fixes divide-by-zero risk)
+std_safe = np.where(std == 0, 1e-8, std)
 
 session = ort.InferenceSession("model.onnx")
 input_name = session.get_inputs()[0].name
@@ -60,8 +59,7 @@ class HouseInput(BaseModel):
     Bedroom_AbvGr: float = Field(..., gt=0, lt=10)
     Lot_Area: float = Field(..., gt=1000, lt=50000)
 
-# ---------------------------- JWT HANDLING ----------------------------
-
+# ---------------------------- JWT ----------------------------
 def create_token(data: dict):
     payload = data.copy()
     payload["exp"] = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -73,12 +71,12 @@ def verify_token(token: str):
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-# ---------------------------- ROOT ENDPOINT ----------------------------
+# ---------------------------- ROOT ----------------------------
 @app.get("/")
 def root():
     return {"message": "House Price Prediction API"}
 
-# ---------------------------- LOGIN ENDPOINT ----------------------------
+# ---------------------------- LOGIN ----------------------------
 @app.post("/login")
 def login(form: OAuth2PasswordRequestForm = Depends()):
     if form.username != ADMIN_USERNAME or form.password != ADMIN_PASSWORD:
@@ -89,57 +87,44 @@ def login(form: OAuth2PasswordRequestForm = Depends()):
         "token_type": "bearer"
     }
 
-# ---------------------------- PREDICT ENDPOINT ----------------------------
-# ---------------------------- PREDICT ENDPOINT ----------------------------
+# ================================================================
+# 🔧 FIXED FEATURE ENGINEERING (CRITICAL ALIGNMENT WITH TRAIN.PY)
+# ================================================================
+def transform(data: dict):
+    data = data.copy()
+    data["HouseAge"] = 2026 - data["Year_Built"]
+    data["HasGarage"] = 1 if data["Garage_Cars"] > 0 else 0
+    return data
+
+# ---------------------------- PREDICT ----------------------------
 @app.post("/predict")
 def predict(input_data: HouseInput, token: str = Depends(oauth2_scheme)):
-    # Verify JWT token
+
     verify_token(token)
 
     # -------------------------- FEATURE ENGINEERING --------------------------
     features_dict = transform(input_data.dict())
 
-    # -------------------------- BUILD FEATURE VECTOR --------------------------
-    # Ensure correct order and visibility
+    # -------------------------- FEATURE VECTOR --------------------------
     x_list = [features_dict[f] for f in FEATURES]
-
-    # 🔍 Debug: print feature mapping (remove later)
-    print("---- FEATURE DEBUG ----")
-    for f, v in zip(FEATURES, x_list):
-        print(f"{f}: {v}")
-    print("------------------------")
-
     x = np.array([x_list], dtype=np.float32)
 
-    # -------------------------- SAFETY CHECK --------------------------
-    if len(mean) != len(FEATURES) or len(std) != len(FEATURES):
-        raise HTTPException(
-            status_code=500,
-            detail="Mismatch between FEATURES and normalization vectors"
-        )
-
-    # 🔍 Debug: print mean/std alignment (remove later)
-    print("---- NORMALIZATION DEBUG ----")
-    for f, m, s in zip(FEATURES, mean, std):
-        print(f"{f}: mean={m:.2f}, std={s:.2f}")
-    print("-----------------------------")
-
     # -------------------------- NORMALIZATION --------------------------
-    x = (x - mean) / std
+    x = (x - mean) / std_safe
 
-    # -------------------------- PREDICTION --------------------------
-    pred_log = session.run([output_name], {input_name: x.astype(np.float32)})[0]
+    # -------------------------- ONNX PREDICTION --------------------------
+    pred_log = session.run(
+        [output_name],
+        {input_name: x.astype(np.float32)}
+    )[0]
 
-    # Reverse the log transformation
-    price = np.expm1(pred_log)[0][0]
+    # SAFE OUTPUT HANDLING (fix shape issues)
+    price = float(np.expm1(pred_log).reshape(-1)[0])
 
-    # -------------------------- CLAMPING --------------------------
+    # -------------------------- CLAMP --------------------------
     max_price = 755000
     min_price = 50000
 
-    if price > max_price:
-        price = max_price
-    if price < min_price:
-        price = min_price
+    price = max(min(price, max_price), min_price)
 
-    return {"predicted_price": float(price)}
+    return {"predicted_price": price}
