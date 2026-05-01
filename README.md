@@ -1,6 +1,6 @@
 # 🏠 v6 - House Price Prediction API (FastAPI + PyTorch + JWT + Ames Dataset)
 
-Last updated: 
+Last updated 
 
 - 01-05-2026
 
