@@ -76,6 +76,10 @@ def verify_token(token: str):
 def root():
     return {"message": "House Price Prediction API"}
 
+@app.get("/health")
+def health():
+    return {"ok": True}
+
 # ---------------------------- LOGIN ----------------------------
 @app.post("/login")
 def login(form: OAuth2PasswordRequestForm = Depends()):
