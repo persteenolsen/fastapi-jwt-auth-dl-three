@@ -36,15 +36,24 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
-# ---------------------------- LOAD MODEL ----------------------------
-mean = np.load("mean.npy").astype(np.float32)
-std = np.load("std.npy").astype(np.float32)
+# ---------------------------- LAZY MODEL LOADING (FIX) ----------------------------
+session = None
+mean = None
+std = None
+std_safe = None
 
-std_safe = np.where(std == 0, 1e-8, std)
+def load_model():
+    global session, mean, std, std_safe
 
-session = ort.InferenceSession("model.onnx")
-input_name = session.get_inputs()[0].name
-output_name = session.get_outputs()[0].name
+    if session is None:
+        mean = np.load("mean.npy").astype(np.float32)
+        std = np.load("std.npy").astype(np.float32)
+
+        std_safe = np.where(std == 0, 1e-8, std)
+
+        session = ort.InferenceSession("model.onnx")
+
+        print("Model loaded successfully")
 
 # ---------------------------- MODELS ----------------------------
 class HouseInput(BaseModel):
@@ -68,7 +77,7 @@ def verify_token(token: str):
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-# ---------------------------- AUTH (OPTION A) ----------------------------
+# ---------------------------- AUTH ----------------------------
 def get_token(authorization: str = Header(None)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing Authorization header")
@@ -107,6 +116,9 @@ def predict(input_data: HouseInput, token: str = Depends(get_token)):
 
     verify_token(token)
 
+    # LOAD MODEL ONLY WHEN NEEDED (IMPORTANT FIX)
+    load_model()
+
     features_dict = transform(input_data.dict())
 
     x_list = [features_dict[f] for f in FEATURES]
@@ -115,8 +127,8 @@ def predict(input_data: HouseInput, token: str = Depends(get_token)):
     x = (x - mean) / std_safe
 
     pred_log = session.run(
-        [output_name],
-        {input_name: x.astype(np.float32)}
+        [session.get_outputs()[0].name],
+        {session.get_inputs()[0].name: x.astype(np.float32)}
     )[0]
 
     price = float(np.expm1(pred_log).reshape(-1)[0])
