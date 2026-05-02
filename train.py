@@ -90,11 +90,16 @@ class HouseModel(nn.Module):
     def __init__(self, n_features):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(n_features, 32),
+            
+            # Reduced hidden layer size to prevent overfitting, but still allows learning complex patterns
+            nn.Linear(n_features, 8),
             nn.ReLU(),
-            nn.Linear(32, 16),
-            nn.ReLU(),
-            nn.Linear(16, 1)
+           
+           # Removed second hidden layer to simplify the model and reduce overfitting risk. 
+           # The first layer can still capture non-linear relationships.
+           # nn.Linear(32, 16),
+           # nn.ReLU(),
+            nn.Linear(8, 1)
         )
 
     def forward(self, x):
@@ -109,14 +114,18 @@ loss_fn = nn.MSELoss()
 
 optimizer = torch.optim.Adam(
     model.parameters(),
-    lr=0.0005,          # lower LR for stability
-    weight_decay=1e-4
+     
+     # Higher LR can cause divergence, but too low may be slow. 0.004 is a good balance for this model
+     lr=0.004,          
+     weight_decay=1e-4
 )
 
 # =====================================================
 # TRAIN LOOP
 # =====================================================
-epochs = 500
+# Increased epochs to allow the model to learn better, but with the simplified architecture 
+# and regularization, it should not overfit
+epochs = 1100
 
 for epoch in range(epochs):
     model.train()
