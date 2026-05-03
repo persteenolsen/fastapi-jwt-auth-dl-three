@@ -8,6 +8,35 @@ from sklearn.linear_model import LinearRegression
 from features import FEATURES
 
 # =====================================================
+# SETTING THE RANDOM SEED FOR REPRODUCIBILITY
+# =====================================================
+# The random seed ensures consistent results across multiple runs of the script.
+# By fixing the seed for Python, NumPy, and PyTorch, we guarantee that model 
+# weights, data shuffling, and other random processes are the same each time.
+# This is important for reproducibility and comparison of results.
+# Then tuning the model architecture, learning rate and epochs will be more easy and consistent.
+#  
+# Example (manual predictions with fixed seed):
+# 🔎 Gr_Liv_Area=900 -> $182,959
+# 🔎 Gr_Liv_Area=1000 -> $187,534
+# 🔎 Gr_Liv_Area=1100 -> $192,223
+# 🔎 Gr_Liv_Area=1200 -> $197,028
+
+import random
+
+# Set the random seed for reproducibility
+seed_value = 42  # You can choose any integer you like
+
+# For Python random module
+random.seed(seed_value)
+
+# For NumPy
+np.random.seed(seed_value)
+
+# For PyTorch CPU
+torch.manual_seed(seed_value)
+
+# =====================================================
 # FEATURE ENGINEERING
 # =====================================================
 def build_features(row):
