@@ -2,7 +2,7 @@
 
 Last updated 
 
-- 02-05-2026
+- 03-05-2026
 
 A production-style machine learning backend system that predicts house prices using a PyTorch neural network trained on the Ames Housing dataset and served through a secure FastAPI API with JWT authentication.
 
@@ -15,6 +15,8 @@ This project demonstrates a full ML engineering pipeline: data preprocessing →
 - My v7 using Linear Regression performs "better" with Ames Housing Dataset, but both models have their pros and cons 
 
 However, I got experience with PyTorch and compared PyToch Neural Network v6 with Linear Regression v7. PyTorch would be a good choice for massive datsets and image classification
+
+Take a look at the section Model Tuning
 
 ---
 
@@ -117,6 +119,30 @@ Outputs:
 - model.onnx  
 - mean.npy  
 - std.npy  
+
+---
+
+## 🔧 Model Tuning (NEW)
+
+During development, the model was tuned to improve stability and realism of predictions.
+
+Key tuning changes:
+
+- Reduced a hidden layer
+- Reduced hidden layer size (16 → 8 neurons)
+- Lowered learning rate (0.01 → 0.004)
+- Increased training epochs (500 → 1100)
+- Added weight decay (L2 regularization)
+- Introduced early stopping for training stability
+- Improved numerical stability in normalization
+
+Result:
+
+- Smooth, monotonic price curves
+- Stable age depreciation behavior
+- More consistent size scaling
+- Reduced high-range prediction jumps
+- Better generalization without overfitting
 
 ---
 
