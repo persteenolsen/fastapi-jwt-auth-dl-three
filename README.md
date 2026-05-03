@@ -129,9 +129,9 @@ During development, the model was tuned to improve stability and realism of pred
 Key tuning changes:
 
 - Reduced a hidden layer
-- Reduced hidden layer size (32 → 6 neurons)
-- Lowered learning rate (0.01 → 0.004)
-- Increased training epochs (500 → 1100)
+- Reduced hidden layer size (16 → 4 neurons)
+- Lowered learning rate (0.01 → 0.005)
+- Increased training epochs (500 → 1000)
 - Added weight decay (L2 regularization)
 - Introduced early stopping for training stability
 - Improved numerical stability in normalization
@@ -226,7 +226,7 @@ POST `/predict`
 
 ```json
 {
-  "predicted_price": 209812.421875
+  "predicted_price": 216979.625
 }
 ```
 
@@ -249,7 +249,7 @@ POST `/predict`
 
 ```json
 {
-  "predicted_price": 192813.921875
+  "predicted_price": 197978.359375
 }
 ```
 ---

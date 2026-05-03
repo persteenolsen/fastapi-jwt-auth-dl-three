@@ -84,7 +84,7 @@ X_test = torch.tensor(X_scaled[split:], dtype=torch.float32)
 y_test = torch.tensor(y[split:], dtype=torch.float32).view(-1, 1)
 
 # =====================================================
-# MODEL (IMPROVED CAPACITY)
+# MODEL DEFINITION
 # =====================================================
 class HouseModel(nn.Module):
     def __init__(self, n_features):
@@ -92,14 +92,14 @@ class HouseModel(nn.Module):
         self.net = nn.Sequential(
             
             # Reduced hidden layer size to prevent overfitting, but still allows learning complex patterns
-            nn.Linear(n_features, 6),
+            nn.Linear(n_features, 4),
             nn.ReLU(),
            
             # Removed second hidden layer to simplify the model and reduce overfitting risk. 
             # The first layer can still capture non-linear relationships.
-            # nn.Linear(32, 16),
-            # nn.ReLU(),
-            nn.Linear(6, 1)
+            
+            # Output layer remains the same to predict the log price
+            nn.Linear(4, 1)
         )
 
     def forward(self, x):
@@ -116,7 +116,7 @@ optimizer = torch.optim.Adam(
     model.parameters(),
      
      # Higher LR can cause divergence, but too low may be slow. 0.004 is a good balance for this model
-     lr=0.004,          
+     lr=0.005,          
      weight_decay=1e-4
 )
 
@@ -125,7 +125,7 @@ optimizer = torch.optim.Adam(
 # =====================================================
 # Increased epochs to allow the model to learn better, but with the simplified architecture 
 # and regularization, it should not overfit
-epochs = 1100
+epochs = 1000
 
 for epoch in range(epochs):
     model.train()
