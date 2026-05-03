@@ -92,14 +92,14 @@ class HouseModel(nn.Module):
         self.net = nn.Sequential(
             
             # Reduced hidden layer size to prevent overfitting, but still allows learning complex patterns
-            nn.Linear(n_features, 8),
+            nn.Linear(n_features, 6),
             nn.ReLU(),
            
-           # Removed second hidden layer to simplify the model and reduce overfitting risk. 
-           # The first layer can still capture non-linear relationships.
-           # nn.Linear(32, 16),
-           # nn.ReLU(),
-            nn.Linear(8, 1)
+            # Removed second hidden layer to simplify the model and reduce overfitting risk. 
+            # The first layer can still capture non-linear relationships.
+            # nn.Linear(32, 16),
+            # nn.ReLU(),
+            nn.Linear(6, 1)
         )
 
     def forward(self, x):
