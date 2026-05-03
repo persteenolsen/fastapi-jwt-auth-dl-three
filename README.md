@@ -128,8 +128,8 @@ During development, the model was tuned to improve stability and realism of pred
 
 Key tuning changes:
 
-- Reduced a hidden layer
-- Reduced hidden layer size (16 → 4 neurons)
+- Removed a hidden layer
+- Reduced the hidden layer size (16 → 4 neurons)
 - Lowered learning rate (0.01 → 0.005)
 - Increased training epochs (500 → 1000)
 - Added weight decay (L2 regularization)
