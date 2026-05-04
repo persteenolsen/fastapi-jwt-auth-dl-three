@@ -72,12 +72,18 @@ df = df[FEATURES + ["SalePrice"]].dropna()
 # =====================================================
 # CORRELATION CHECK
 # =====================================================
+# 📊 Correlation with SalePrice:
+# Pearson correlation: +1 strong positive, -1 strong negative, 0 none.
+# Example: Overall_Qual (0.799) → higher quality → higher price..
 print("\n📊 Correlation with SalePrice:")
 print(df[FEATURES + ["SalePrice"]].corr()["SalePrice"].sort_values())
 
 # =====================================================
 # LINEAR BASELINE
 # =====================================================
+# 📏 Linear Regression baseline:
+# Fits a linear model using Gr_Liv_Area to predict SalePrice.
+# Example: coefficient 67.29 → each extra sq.ft increases price by ~$67.
 print("\n📏 Linear Regression baseline:")
 linreg = LinearRegression()
 linreg.fit(df[FEATURES], df["SalePrice"])
@@ -198,6 +204,9 @@ print("✅ mean.npy + std.npy saved")
 # =====================================================
 # TEST CASE 1: PYTORCH
 # =====================================================
+# 🔎 Manual predictions:
+# Shows example predictions from the trained PyTorch model for given feature values.
+# Example: Gr_Liv_Area=1000 → predicted price ≈ $187,534
 print("\n🔎 Manual predictions (PyTorch):")
 
 base = {
@@ -232,6 +241,9 @@ with torch.no_grad():
 # =====================================================
 # TEST CASE 2: ONNX VALIDATION
 # =====================================================
+# 🔎 ONNX verification:
+# Confirms the ONNX model outputs match the PyTorch model outputs.
+# Example: difference for Gr_Liv_Area=1000 → diff ≈ 0.0 (matches perfectly)
 print("\n🔎 ONNX verification:")
 
 import onnxruntime as ort
